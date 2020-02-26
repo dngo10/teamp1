@@ -4,5 +4,9 @@
         "K": "\\\\ge-fs1\\Data",
         "P": "\\\\ge-fs1\\Team Shared",
         "M": "\\\\ge-fs1\\Drafting\\LIBIO\\Team Huan"
+    },
+
+    "dartOutPutFile":{
+        "fileName" : "exportFile.json"
     }
 }

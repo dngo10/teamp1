@@ -36,8 +36,8 @@ class CopyFileToFolder{
   }
 
   void RenameTheDirectory(String oldLocation, String newLocation) async{
-    String oldProjectNumber = oldLocation.split("/").last;
-    String newProjectNumber = newLocation.split("/").last;
+    String oldProjectNumber = oldLocation.split("\\").last;
+    String newProjectNumber = newLocation.split("\\").last;
     String oldProjectNumber4digit = oldProjectNumber.substring(1);
     String newProjectNumber4digit = newProjectNumber.substring(1);
 
@@ -68,15 +68,23 @@ class CopyFileToFolder{
 
 class FixXref{
   InputInformationClass inputClass;
+  XrefPathInformation xrefPathInformation = XrefPathInformation();
+
   String accorePath;
 
 
-  String projectFile = "projectFile.json";
+  String projectFile = "XrefPathInformation.json";
 
   FixXref(InputInformationClass inputClass, String accorePath){
     this.inputClass = inputClass;
     this.accorePath = accorePath;
 
+    xrefPathInformation.newNumber = inputClass.newLocation.trim().split("\\").last;
+    xrefPathInformation.oldNumber = inputClass.oldLocation.trim().split("\\").last;
+
+    xrefPathInformation.newNumber4Digit = xrefPathInformation.newNumber.substring(1);
+    xrefPathInformation.oldNumber4Digit = xrefPathInformation.oldNumber.substring(1);
+    
   }
 
   void fixAll() async{
@@ -85,41 +93,38 @@ class FixXref{
 
     for(int i = 0; i < fileList.length; i++){
       if(await File(fileList[i].path).exists() && await isDwgFile(fileList[i].path)){
+        xrefPathInformation.dwgPath = fileList[i].path;
         //RUN THE PROCESS TO CHANGE XREF
         
-        String pathBatFile = "${DateTime.now()}Bat.bat";;
-        String scriptFile = "${DateTime.now()}Script.scr";
+        String pathBatFile = "${DateTime.now().millisecondsSinceEpoch}Bat.bat";;
+        String scriptFile = "${DateTime.now().millisecondsSinceEpoch}Script.scr";
 
-        await createBat(pathBatFile, scriptFile, inputClass.dllCommand, inputClass.dllPath);
+        await createBat(pathBatFile, Directory.current.path + "\\" + scriptFile, inputClass.dllCommand, inputClass.dllPath);
         await createInforSite();
-        await Process.run(pathBatFile, []);
 
+        await Process.run(pathBatFile, []);
+        File(pathBatFile).delete();
+        File(scriptFile).delete();
+        //break;
       }
     }
   }
 
   void createBat(String pathBatFile, String scriptFile, String command, String dllPath) async{
     await createScript(scriptFile, command, dllPath);
-    String commandLine = "$accorePath /i trash.dwg /s $scriptFile /readonly";
+    String commandLine = "\"$accorePath\" /i \"trash.dwg\" /s \"$scriptFile\"";
     await File(pathBatFile).writeAsString(commandLine);
   }
 
   void createScript(String scriptFile, String command, String dllPath) async{
-    String commandScript = '''
-      SECURELOAD
-      0
-      NETLOAD
-      $dllPath
-      $command
-      exit
-    ''';
+    String commandScript = "SECURELOAD\n0\nNETLOAD\n$dllPath\n$command\nSAVE\n\nY\nEXIT\n";
 
     await File(scriptFile).writeAsString(commandScript);
   }
 
   Future<bool> isDwgFile(String path) async{
-    if(!await Directory(path).exists()){return false;}
-    String fileName = path.split("/").last.toLowerCase();
+    if(!await File(path).exists()){return false;}
+    String fileName = path.split("\\").last.toLowerCase();
 
     if(fileName.contains(".") && fileName.split(".").last == "dwg"){
       return true;
@@ -129,9 +134,9 @@ class FixXref{
   }
 
   void createInforSite() async{
-    await File(projectFile).writeAsString(json.encode(this));
+    //print("-----------------------------------------------\n" + jsonEncode(xrefPathInformation));
+    await File(projectFile).writeAsString(jsonEncode(xrefPathInformation));
   }
-
 }
 
 main(List<String> args) async{
@@ -142,10 +147,10 @@ main(List<String> args) async{
 
 
   String jsonString = await  File(args[0]).readAsString();
-  File(args[0]).delete();
+  //File(args[0]).delete();
   
-  jsonString = jsonString.replaceAll(r'\\', '/');
   InputInformationClass inputClass = InputInformationClass.fromJson(jsonString);
+  await File("absdf.json").writeAsString(jsonEncode(inputClass));
 
   if(! await Directory(inputClass.newLocation).exists()){ 
   } else{
@@ -164,8 +169,6 @@ main(List<String> args) async{
   FixXref fixXref = FixXref(inputClass, cadPath.getAutoCadPath());
 
   await fixXref.fixAll();
-
-  print(processResult.stdout);
 }
 
 class InputInformationClass
@@ -184,19 +187,14 @@ class InputInformationClass
       this.dllPath = jsonEntity["dllPath"];
       this.outputFile = jsonEntity["outputFile"];
     }
-}
 
-class OutputInformation{
-  String numberOfFiles;
-  String processState;
-  String consoleOutPut;
-  List<String> fileName;
-
-  OutputInformation(){}
-
-  void writeToFile(String filePath){
-    File(filePath).writeAsString(json.encode(this));
-  }
+    Map<String, dynamic> toJson() => {
+      'oldLocation' : oldLocation,
+      'newLocation' : newLocation,
+      'dllCommand' : dllCommand,
+      'dllPath' : dllPath,
+      'outputFile' : outputFile
+    };
 }
 
 class XrefPathInformation{
@@ -205,4 +203,12 @@ class XrefPathInformation{
   String oldNumber4Digit;
   String newNumber4Digit;
   String dwgPath;
+
+  Map<String, dynamic> toJson() => {
+    'oldNumber' : oldNumber,
+    'newNuwber' : newNumber,
+    'oldNumber4Digit' : oldNumber4Digit,
+    'newNumber4Digit' : newNumber4Digit,
+    'dwgPath' : dwgPath
+  };
 }
